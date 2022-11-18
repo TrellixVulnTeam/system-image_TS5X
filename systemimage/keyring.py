@@ -116,7 +116,26 @@ def get_keyring(keyring_type, urls, sigkr, blacklist=None):
         keyring_gpg = os.path.join(config.tempdir, 'keyring.gpg')
         keyring_json = os.path.join(config.tempdir, 'keyring.json')
         with tarfile.open(tarxz_dst, 'r:xz') as tf:
-            tf.extractall(config.tempdir)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(tf, config.tempdir)
         stack.callback(os.remove, keyring_gpg)
         stack.callback(os.remove, keyring_json)
         with open(keyring_json, 'r', encoding='utf-8') as fp:
